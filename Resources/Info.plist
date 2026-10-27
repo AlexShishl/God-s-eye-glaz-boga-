@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.alexshishl.godseye</string>
+    <key>CFBundleName</key>
+    <string>Глаз Бога</string>
+    <key>CFBundleDisplayName</key>
+    <string>Глаз Бога</string>
+    <key>CFBundleExecutable</key>
+    <string>NotchDrawer</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Глаз Бога показывает твои встречи на сегодня и на неделю и умеет добавлять новые.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Глаз Бога показывает твои встречи на сегодня и на неделю.</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>Глаз Бога показывает и добавляет твои задачи (Напоминания).</string>
+    <key>NSRemindersUsageDescription</key>
+    <string>Глаз Бога показывает твои задачи.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Глаз Бога узнаёт, какой трек сейчас играет в Музыке или Spotify.</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>Глаз Бога забирает новые скриншоты с Рабочего стола на свою полку.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Глаз Бога забирает новые скриншоты, если они сохраняются в Документы.</string>
+</dict>
+</plist>

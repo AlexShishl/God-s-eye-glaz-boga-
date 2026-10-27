@@ -102,8 +102,8 @@ final class ClaudeUsage: UsageSource {
             guard let token else {
                 return .failure(UsageError(message: "Не нашла вход Claude Code: запусти claude в Терминале и войди"))
             }
-            if let exp = Self.tokenExpiry, exp < Date() {
-                if attempt == 0 { continue }
+            if let exp = Self.tokenExpiry, exp < Date().addingTimeInterval(60) {
+                if attempt == 0, await Self.refreshLogin() { continue }
                 return .failure(UsageError(message: "Вход Claude Code на этом Mac истёк: запусти claude в Терминале, и строка оживёт"))
             }
             var req = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)
@@ -117,7 +117,7 @@ final class ClaudeUsage: UsageSource {
             let (data, response) = reply
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             if status == 401 || status == 403 {
-                if attempt == 0 { continue }
+                if attempt == 0, await Self.refreshLogin() { continue }
                 return .failure(UsageError(message: "Сервер не пустил (код \(status)): запусти claude в Терминале и войди заново"))
             }
             guard status == 200, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -133,31 +133,94 @@ final class ClaudeUsage: UsageSource {
         return UsageLimit(percent: u, resetsAt: (d["resets_at"] as? String).flatMap(parseDate))
     }
 
+    private static let service = "Claude Code-credentials"
+    private static var credentialsFile: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/.credentials.json")
+    }
+
     /// Claude Code хранит вход в Связке ключей («Claude Code-credentials») или в ~/.claude/.credentials.json.
+    private static func readCredentials() -> (json: [String: Any], inKeychain: Bool)? {
+        if let out = security(["find-generic-password", "-s", service, "-w"]),
+           let json = try? JSONSerialization.jsonObject(with: out) as? [String: Any] {
+            return (json, true)
+        }
+        if let data = try? Data(contentsOf: credentialsFile),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return (json, false)
+        }
+        return nil
+    }
+
     private static func readToken() -> String? {
-        var raw: Data?
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        p.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        p.standardError = Pipe()
-        if (try? p.run()) != nil {
-            raw = pipe.fileHandleForReading.readDataToEndOfFile()
-            p.waitUntilExit()
-            if p.terminationStatus != 0 { raw = nil }
-        }
-        if raw == nil {
-            let file = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/.credentials.json")
-            raw = try? Data(contentsOf: file)
-        }
-        guard let raw,
-              let json = try? JSONSerialization.jsonObject(with: raw) as? [String: Any],
-              let oauth = json["claudeAiOauth"] as? [String: Any],
+        guard let oauth = readCredentials()?.json["claudeAiOauth"] as? [String: Any],
               let token = oauth["accessToken"] as? String, !token.isEmpty
         else { return nil }
         tokenExpiry = (oauth["expiresAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
         return token
+    }
+
+    /// Вход протух: обновляем его так же, как сам Claude Code (по refreshToken),
+    /// и записываем новый вход обратно, чтобы Claude Code тоже продолжил работать.
+    private static func refreshLogin() async -> Bool {
+        guard let (json, inKeychain) = readCredentials(),
+              var oauth = json["claudeAiOauth"] as? [String: Any],
+              let refresh = oauth["refreshToken"] as? String, !refresh.isEmpty
+        else { return false }
+
+        var req = URLRequest(url: URL(string: "https://console.anthropic.com/v1/oauth/token")!)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "grant_type": "refresh_token",
+            "refresh_token": refresh,
+            "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        ])
+        req.timeoutInterval = 15
+        guard let (data, response) = try? await URLSession.shared.data(for: req),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let reply = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let access = reply["access_token"] as? String
+        else { return false }
+
+        oauth["accessToken"] = access
+        if let newRefresh = reply["refresh_token"] as? String { oauth["refreshToken"] = newRefresh }
+        if let expiresIn = reply["expires_in"] as? Double {
+            oauth["expiresAt"] = ((Date().timeIntervalSince1970 + expiresIn) * 1000).rounded()
+        }
+        var updated = json
+        updated["claudeAiOauth"] = oauth
+        guard let out = try? JSONSerialization.data(withJSONObject: updated),
+              let text = String(data: out, encoding: .utf8) else { return false }
+
+        if inKeychain {
+            let account = keychainAccount() ?? NSUserName()
+            _ = security(["add-generic-password", "-U", "-a", account, "-s", service, "-w", text])
+        } else {
+            try? out.write(to: credentialsFile, options: .atomic)
+        }
+        return true
+    }
+
+    private static func keychainAccount() -> String? {
+        guard let out = security(["find-generic-password", "-s", service]),
+              let text = String(data: out, encoding: .utf8),
+              let line = text.split(separator: "\n").first(where: { $0.contains("\"acct\"") }),
+              let start = line.range(of: "=\"")?.upperBound
+        else { return nil }
+        return String(line[start...].dropLast())
+    }
+
+    private static func security(_ args: [String]) -> Data? {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        p.arguments = args
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = Pipe()
+        guard (try? p.run()) != nil else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return p.terminationStatus == 0 ? data : nil
     }
 }
 

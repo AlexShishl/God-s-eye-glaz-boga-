@@ -21,6 +21,8 @@ final class CalendarStore: ObservableObject {
     @Published var tasks: [EKReminder] = []
     @Published var calendars: [EKCalendar] = []
     @Published var error: String?
+    /// Откуда берутся встречи: «iCloud, Google» — видно, подключился ли Google.
+    @Published var sourcesSummary = ""
 
     var hasEvents: Bool { eventsStatus == .fullAccess }
     var hasReminders: Bool { remindersStatus == .fullAccess }
@@ -36,24 +38,34 @@ final class CalendarStore: ObservableObject {
         Task { @MainActor in
             _ = try? await store.requestFullAccessToEvents()
             _ = try? await store.requestFullAccessToReminders()
+            store.reset()
             reload()
         }
     }
 
     func reload() {
+        let wasAllowed = hasEvents
         eventsStatus = EKEventStore.authorizationStatus(for: .event)
         remindersStatus = EKEventStore.authorizationStatus(for: .reminder)
+        // Доступ дали, пока приложение работало: без reset хранилище не видит календари.
+        if hasEvents && !wasAllowed { store.reset() }
+        store.refreshSourcesIfNecessary()
         let cal = Calendar.current
         let start = cal.startOfDay(for: Date())
         let endToday = cal.date(byAdding: .day, value: 1, to: start)!
         let endWeek = cal.date(byAdding: .day, value: 8, to: start)!
 
         if hasEvents {
-            calendars = store.calendars(for: .event).filter(\.allowsContentModifications)
+            let all = store.calendars(for: .event)
+            calendars = all.filter(\.allowsContentModifications)
+            let names = Dictionary(grouping: all) { $0.source?.title ?? "?" }
+                .map { "\($0.key) (\($0.value.count))" }
+                .sorted()
+            sourcesSummary = names.isEmpty ? "Календарей не видно" : "Календари: " + names.joined(separator: ", ")
             let predicate = store.predicateForEvents(withStart: start, end: endWeek, calendars: nil)
-            let all = store.events(matching: predicate).sorted { $0.startDate < $1.startDate }
-            today = all.filter { $0.startDate < endToday }
-            let later = all.filter { $0.startDate >= endToday }
+            let events = store.events(matching: predicate).sorted { $0.startDate < $1.startDate }
+            today = events.filter { $0.startDate < endToday }
+            let later = events.filter { $0.startDate >= endToday }
             week = Dictionary(grouping: later) { cal.startOfDay(for: $0.startDate) }
                 .map { DayGroup(day: $0.key, events: $0.value) }
                 .sorted { $0.day < $1.day }
@@ -163,8 +175,7 @@ private struct GoogleHint: View {
         } label: {
             Label("Подключить Google Календарь", systemImage: "link")
         }
-        .buttonStyle(.link)
-        .font(.caption)
+        .buttonStyle(PillButton())
         .help("Настройки → Интернет-аккаунты → Google → включи «Календари»")
     }
 }
@@ -267,6 +278,7 @@ private struct WeekColumn: View {
             Text("На неделе").font(.system(size: 14, weight: .bold))
             if cal.week.isEmpty {
                 EmptyState(icon: "calendar", text: "Встреч на неделе нет")
+                Text(cal.sourcesSummary).font(.caption2).foregroundStyle(.tertiary).lineLimit(2)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {

@@ -213,7 +213,7 @@ struct PlayerView: View {
                     VStack(spacing: 3) {
                         ProgressView(value: min(np.elapsed, np.duration), total: np.duration)
                             .progressViewStyle(.linear)
-                            .tint(.white)
+                            .tint(.primary)
                         HStack {
                             Text(format(np.elapsed))
                             Spacer()

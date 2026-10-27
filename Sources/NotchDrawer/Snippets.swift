@@ -85,7 +85,7 @@ struct SnippetsView: View {
             }
 
             if let draft = editing {
-                Color.black.opacity(0.6)
+                Color.black.opacity(0.35)
                     .onTapGesture { editing = nil }
                 SnippetEditor(draft: draft,
                               isNew: !store.items.contains { $0.id == draft.id },
@@ -119,7 +119,7 @@ private struct SnippetCard: View {
             Image(systemName: snippet.icon)
                 .font(.system(size: 12, weight: .semibold))
                 .frame(width: 26, height: 26)
-                .background(Circle().fill(Color.white.opacity(0.1)))
+                .background(Circle().fill(Color.primary.opacity(0.1)))
             VStack(alignment: .leading, spacing: 2) {
                 Text(snippet.title).font(.caption.weight(.semibold)).lineLimit(1)
                 Text(snippet.value.isEmpty ? "Нажми, чтобы заполнить" : snippet.value)
@@ -130,7 +130,7 @@ private struct SnippetCard: View {
                 Button(action: onEdit) {
                     Image(systemName: "pencil").font(.system(size: 11, weight: .semibold))
                         .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.white.opacity(0.12)))
+                        .background(Circle().fill(Color.primary.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
                 .help("Изменить")
@@ -173,7 +173,7 @@ private struct SnippetEditor: View {
                         Image(systemName: icon)
                             .font(.system(size: 12))
                             .frame(width: 24, height: 24)
-                            .background(Circle().fill(Color.white.opacity(draft.icon == icon ? 0.3 : 0.06)))
+                            .background(Circle().fill(Color.primary.opacity(draft.icon == icon ? 0.3 : 0.06)))
                     }
                     .buttonStyle(.plain)
                 }
@@ -193,6 +193,7 @@ private struct SnippetEditor: View {
         .padding(12)
         .controlSize(.small)
         .frame(width: 470)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(white: 0.12)))
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(nsColor: .windowBackgroundColor))
+            .shadow(color: .black.opacity(0.3), radius: 12, y: 4))
     }
 }

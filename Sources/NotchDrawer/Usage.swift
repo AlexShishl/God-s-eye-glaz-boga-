@@ -268,7 +268,7 @@ private struct UsageRow: View {
         }
         .frame(height: 22)
         .padding(.horizontal, 12)
-        .background(Capsule().fill(Color.white.opacity(0.05)))
+        .background(Capsule().fill(Color.primary.opacity(0.05)))
         .onAppear { source.refreshIfNeeded() }
         .onChange(of: state.isOpen) { _, open in
             if open { source.refreshIfNeeded() }
@@ -281,7 +281,7 @@ private struct UsageRow: View {
         return HStack(spacing: 6) {
             Text(title).font(.system(size: 11, weight: .medium))
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.12))
+                Capsule().fill(Color.primary.opacity(0.12))
                 Capsule().fill(color).frame(width: 60 * min(max(pct, 0), 100) / 100)
             }
             .frame(width: 60, height: 5)

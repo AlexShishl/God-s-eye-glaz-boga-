@@ -37,6 +37,15 @@ struct DrawerRootView: View {
     @EnvironmentObject var state: DrawerState
     @ObservedObject private var settings = AppSettings.shared
     @AppStorage("lastTab") private var storedTab: DrawerTab = .player
+    @Environment(\.colorScheme) private var systemScheme
+
+    private var scheme: ColorScheme {
+        switch settings.theme {
+        case .dark: .dark
+        case .light: .light
+        case .glass: systemScheme
+        }
+    }
 
     /// Выбранный раздел; если его выключили в настройках, показываем первый включённый.
     private var tab: DrawerTab {
@@ -66,13 +75,9 @@ struct DrawerRootView: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 10)
         .frame(width: NotchController.panelSize.width, height: NotchController.panelSize.height)
-        .background(
-            UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 24,
-                                   bottomTrailingRadius: 24, topTrailingRadius: 0, style: .continuous)
-                .fill(Color.black)
-        )
-        .foregroundStyle(.white)
-        .environment(\.colorScheme, .dark)
+        .background(ThemeBackground(theme: settings.theme))
+        .foregroundStyle(.primary)
+        .environment(\.colorScheme, scheme)
         .scaleEffect(state.isOpen ? 1 : 0.35, anchor: .top)
         .opacity(state.isOpen ? 1 : 0)
     }
@@ -94,8 +99,8 @@ struct DrawerRootView: View {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 12, weight: .semibold))
                         .frame(width: 26, height: 24)
-                        .background(Capsule().fill(Color.white.opacity(tab == .settings ? 0.16 : 0)))
-                        .foregroundStyle(tab == .settings ? Color.white : Color.white.opacity(0.5))
+                        .background(Capsule().fill(Color.primary.opacity(tab == .settings ? 0.16 : 0)))
+                        .foregroundStyle(tab == .settings ? Color.primary : Color.primary.opacity(0.5))
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -106,7 +111,7 @@ struct DrawerRootView: View {
                     Image(systemName: state.pinned ? "pin.fill" : "pin")
                         .font(.system(size: 12, weight: .semibold))
                         .frame(width: 28, height: 26)
-                        .foregroundStyle(state.pinned ? Color.yellow : Color.white.opacity(0.5))
+                        .foregroundStyle(state.pinned ? Color.yellow : Color.primary.opacity(0.5))
                 }
                 .buttonStyle(.plain)
                 .help(state.pinned ? "Открепить" : "Закрепить открытой")
@@ -127,8 +132,8 @@ struct DrawerRootView: View {
             }
             .padding(.horizontal, 8)
             .frame(height: 24)
-            .background(Capsule().fill(Color.white.opacity(tab == t ? 0.16 : 0)))
-            .foregroundStyle(tab == t ? Color.white : Color.white.opacity(0.55))
+            .background(Capsule().fill(Color.primary.opacity(tab == t ? 0.16 : 0)))
+            .foregroundStyle(tab == t ? Color.primary : Color.primary.opacity(0.55))
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -192,7 +197,7 @@ struct SearchField: View {
         .font(.caption)
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
-        .background(Capsule().fill(Color.white.opacity(0.08)))
+        .background(Capsule().fill(Color.primary.opacity(0.08)))
     }
 }
 
@@ -202,7 +207,7 @@ struct PillButton: ButtonStyle {
             .font(.system(size: 11, weight: .medium))
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(Capsule().fill(Color.white.opacity(configuration.isPressed ? 0.25 : 0.1)))
+            .background(Capsule().fill(Color.primary.opacity(configuration.isPressed ? 0.25 : 0.1)))
     }
 }
 
@@ -223,6 +228,6 @@ extension View {
     func card(_ highlight: Bool = false) -> some View {
         self.padding(8)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(highlight ? 0.12 : 0.06)))
+                .fill(Color.primary.opacity(highlight ? 0.12 : 0.06)))
     }
 }

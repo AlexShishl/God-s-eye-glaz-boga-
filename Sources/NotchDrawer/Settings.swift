@@ -1,5 +1,69 @@
+import AppKit
 import ServiceManagement
 import SwiftUI
+
+enum Theme: String, CaseIterable, Identifiable {
+    case dark, light, glass
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .dark: "Тёмная"
+        case .light: "Светлая"
+        case .glass: "Стекло"
+        }
+    }
+}
+
+/// Фон шторки. «Стекло» на macOS 26 — настоящее жидкое стекло, на старых — матовое размытие.
+struct ThemeBackground: View {
+    let theme: Theme
+
+    private var shape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 24,
+                               bottomTrailingRadius: 24, topTrailingRadius: 0, style: .continuous)
+    }
+
+    var body: some View {
+        switch theme {
+        case .dark:
+            shape.fill(Color.black)
+        case .light:
+            shape.fill(Color(white: 0.97))
+        case .glass:
+            glass
+        }
+    }
+
+    @ViewBuilder private var glass: some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            Color.clear.glassEffect(.regular, in: shape)
+        } else {
+            blur
+        }
+        #else
+        blur
+        #endif
+    }
+
+    private var blur: some View {
+        VisualEffectBlur().clipShape(shape)
+    }
+}
+
+private struct VisualEffectBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .hudWindow
+        v.blendingMode = .behindWindow
+        v.state = .active
+        return v
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
 
 /// Что показывать в шторке: разделы и лимиты каких нейросетей.
 final class AppSettings: ObservableObject {
@@ -13,7 +77,12 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(Array(enabledLimits), forKey: "enabledLimits") }
     }
 
+    @Published var theme: Theme {
+        didSet { defaults.set(theme.rawValue, forKey: "theme") }
+    }
+
     init() {
+        theme = Theme(rawValue: defaults.string(forKey: "theme") ?? "") ?? .dark
         hiddenModules = Set(defaults.stringArray(forKey: "hiddenModules") ?? [])
         enabledLimits = Set(defaults.stringArray(forKey: "enabledLimits") ?? ["claude"])
     }
@@ -40,6 +109,13 @@ struct SettingsView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
+                Text("Тема").font(.system(size: 14, weight: .bold))
+                Picker("", selection: $settings.theme) {
+                    ForEach(Theme.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
                 Text("Разделы шторки").font(.system(size: 14, weight: .bold))
                 Text("Выключи то, что тебе не нужно").font(.caption2).foregroundStyle(.secondary)
                 ScrollView {

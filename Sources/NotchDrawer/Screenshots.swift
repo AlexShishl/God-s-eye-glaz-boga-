@@ -200,13 +200,13 @@ private struct ShotThumb: View {
                     if let img = ScreenshotStore.shared.thumbnail(for: item) {
                         Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
                     } else {
-                        Color.white.opacity(0.05)
+                        Color.primary.opacity(0.05)
                     }
                 }
                 .frame(width: 150, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.white.opacity(hover ? 0.45 : 0.1), lineWidth: 1))
+                    .stroke(Color.primary.opacity(hover ? 0.45 : 0.1), lineWidth: 1))
 
                 if hover {
                     Button {
@@ -215,6 +215,7 @@ private struct ShotThumb: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 10, weight: .bold))
                             .frame(width: 22, height: 22)
+                            .foregroundStyle(.white)
                             .background(Circle().fill(Color.black.opacity(0.8)))
                     }
                     .buttonStyle(.plain)

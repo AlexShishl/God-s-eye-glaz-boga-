@@ -283,7 +283,7 @@ private struct WeekColumn: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.04)))
     }
 }
 

@@ -162,7 +162,7 @@ struct TranslatorView: View {
                     ScrollView {
                         Text(tr.output.isEmpty ? (tr.error ?? "Перевод появится здесь") : tr.output)
                             .font(.system(size: 13))
-                            .foregroundStyle(tr.output.isEmpty ? (tr.error == nil ? Color.white.opacity(0.35) : Color.red) : Color.white)
+                            .foregroundStyle(tr.output.isEmpty ? (tr.error == nil ? Color.primary.opacity(0.35) : Color.red) : Color.primary)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }

@@ -3,7 +3,7 @@ import AppKit
 /// «Обновить…» в меню: скачивает свежую версию с GitHub, собирает и перезапускает приложение.
 /// Всё происходит в окне Терминала, чтобы было видно, что идёт.
 enum Updater {
-    static let repo = "https://github.com/AlexShishl/glaz-boga.git"
+    static let repo = "https://github.com/AlexShishl/God-s-eye-glaz-boga-.git"
 
     static func run() {
         let script = """

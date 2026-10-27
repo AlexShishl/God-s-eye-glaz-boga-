@@ -162,18 +162,18 @@ private struct AccessCard: View {
             Image(systemName: "calendar.badge.clock").font(.system(size: 26)).foregroundStyle(.secondary)
             Text(text).font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 400)
             Button(button, action: action).buttonStyle(PillButton())
-            GoogleHint()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-private struct GoogleHint: View {
+/// Кнопка в настройках: открывает «Интернет-аккаунты», где подключается Google.
+struct GoogleHint: View {
     var body: some View {
         Button {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Internet-Accounts-Settings.extension")!)
         } label: {
-            Label("Подключить Google Календарь", systemImage: "link")
+            Label("Google Календарь", systemImage: "link")
         }
         .buttonStyle(PillButton())
         .help("Настройки → Интернет-аккаунты → Google → включи «Календари»")
@@ -196,7 +196,6 @@ private struct TodayColumn: View {
                     Text(RuDate.day.string(from: Date()).capitalized).font(.caption2).foregroundStyle(.secondary)
                 }
                 Spacer()
-                GoogleHint()
             }
 
             ScrollView {

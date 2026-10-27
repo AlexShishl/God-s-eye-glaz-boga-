@@ -173,6 +173,9 @@ struct SettingsView: View {
                     .controlSize(.mini)
                 }
                 Spacer(minLength: 0)
+                if settings.isOn(.calendar) {
+                    GoogleHint()
+                }
                 Divider()
                 Toggle(isOn: $launchAtLogin) { Text("Запускать при входе").font(.caption) }
                     .toggleStyle(.switch)

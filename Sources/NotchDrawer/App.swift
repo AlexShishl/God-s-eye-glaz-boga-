@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ScreenshotStore.shared.start()
         controller = NotchController()
         setupStatusItem()
+        if CommandLine.arguments.contains("--permissions") { Permissions.requestAll() }
     }
 
     private func setupStatusItem() {
@@ -37,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
 
+        let perms = NSMenuItem(title: "Выдать разрешения…", action: #selector(requestPermissions), keyEquivalent: "")
+        perms.target = self
+        menu.addItem(perms)
+
         let update = NSMenuItem(title: "Обновить…", action: #selector(runUpdate), keyEquivalent: "")
         update.target = self
         menu.addItem(update)
@@ -49,6 +54,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openDrawer() {
         controller?.open(pinned: true)
+    }
+
+    @objc private func requestPermissions() {
+        Permissions.requestAll()
     }
 
     @objc private func runUpdate() {

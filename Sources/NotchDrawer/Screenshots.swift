@@ -75,6 +75,11 @@ final class ScreenshotStore: ObservableObject {
     }
 
     private func scan() {
+        guard AppSettings.shared.isOn(.shots) else {
+            seen.formUnion(listFiles().map(\.path))
+            purge()
+            return
+        }
         for file in listFiles() where !seen.contains(file.path) {
             seen.insert(file.path)
             let created = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast

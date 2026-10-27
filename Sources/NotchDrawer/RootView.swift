@@ -1,7 +1,10 @@
 import SwiftUI
 
 enum DrawerTab: String, CaseIterable, Identifiable {
-    case player, shots, clipboard, snippets, calendar, translate
+    case player, shots, clipboard, snippets, calendar, translate, settings
+
+    /// Разделы, которые можно включать и выключать в настройках.
+    static let modules: [DrawerTab] = [.player, .shots, .clipboard, .snippets, .calendar, .translate]
 
     var id: String { rawValue }
 
@@ -13,6 +16,7 @@ enum DrawerTab: String, CaseIterable, Identifiable {
         case .snippets: "Заготовки"
         case .calendar: "Календарь"
         case .translate: "Переводчик"
+        case .settings: "Настройки"
         }
     }
 
@@ -24,16 +28,31 @@ enum DrawerTab: String, CaseIterable, Identifiable {
         case .snippets: "square.grid.2x2.fill"
         case .calendar: "calendar"
         case .translate: "character.bubble.fill"
+        case .settings: "gearshape.fill"
         }
     }
 }
 
 struct DrawerRootView: View {
     @EnvironmentObject var state: DrawerState
-    @AppStorage("lastTab") private var tab: DrawerTab = .player
+    @ObservedObject private var settings = AppSettings.shared
+    @AppStorage("lastTab") private var storedTab: DrawerTab = .player
 
-    private let leftTabs: [DrawerTab] = [.player, .shots, .clipboard]
-    private let rightTabs: [DrawerTab] = [.snippets, .calendar, .translate]
+    /// Выбранный раздел; если его выключили в настройках, показываем первый включённый.
+    private var tab: DrawerTab {
+        storedTab == .settings || settings.isOn(storedTab) ? storedTab : (settings.visibleTabs.first ?? .settings)
+    }
+
+    // Включённые разделы делим поровну: половина слева от выреза, половина справа.
+    private var leftTabs: [DrawerTab] {
+        let v = settings.visibleTabs
+        return Array(v.prefix((v.count + 1) / 2))
+    }
+
+    private var rightTabs: [DrawerTab] {
+        let v = settings.visibleTabs
+        return Array(v.dropFirst((v.count + 1) / 2))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,6 +89,18 @@ struct DrawerRootView: View {
                 Spacer(minLength: 0)
                 ForEach(rightTabs) { tabButton($0) }
                 Button {
+                    withAnimation(.easeOut(duration: 0.15)) { storedTab = .settings }
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 26, height: 24)
+                        .background(Capsule().fill(Color.white.opacity(tab == .settings ? 0.16 : 0)))
+                        .foregroundStyle(tab == .settings ? Color.white : Color.white.opacity(0.5))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Настройки")
+                Button {
                     state.pinned.toggle()
                 } label: {
                     Image(systemName: state.pinned ? "pin.fill" : "pin")
@@ -86,7 +117,7 @@ struct DrawerRootView: View {
 
     private func tabButton(_ t: DrawerTab) -> some View {
         Button {
-            withAnimation(.easeOut(duration: 0.15)) { tab = t }
+            withAnimation(.easeOut(duration: 0.15)) { storedTab = t }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: t.icon).font(.system(size: 12, weight: .semibold))
@@ -112,6 +143,7 @@ struct DrawerRootView: View {
         case .snippets: SnippetsView()
         case .calendar: CalendarView()
         case .translate: TranslatorView()
+        case .settings: SettingsView()
         }
     }
 }

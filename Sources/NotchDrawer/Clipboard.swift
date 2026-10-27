@@ -28,6 +28,10 @@ final class ClipboardStore: ObservableObject {
     private func poll() {
         let pb = NSPasteboard.general
         guard pb.changeCount != changeCount else { return }
+        guard AppSettings.shared.isOn(.clipboard) else {
+            changeCount = pb.changeCount
+            return
+        }
         changeCount = pb.changeCount
         let types = pb.types ?? []
         let secret = ["org.nspasteboard.ConcealedType", "org.nspasteboard.TransientType"]

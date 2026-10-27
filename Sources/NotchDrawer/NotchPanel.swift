@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 final class DrawerState: ObservableObject {
@@ -33,7 +34,13 @@ final class NotchPanel: NSPanel {
 
 /// Следит за мышкой: навели на вырез — шторка выезжает, увели — прячется.
 final class NotchController {
-    static let panelSize = CGSize(width: 620, height: 300)
+    static let baseSize = CGSize(width: 620, height: 300)
+
+    /// Размер шторки с учётом ползунка «Размер» в настройках.
+    static var panelSize: CGSize {
+        let s = AppSettings.shared.scale
+        return CGSize(width: (baseSize.width * s).rounded(), height: (baseSize.height * s).rounded())
+    }
 
     private let panel = NotchPanel(size: NotchController.panelSize)
     private let state = DrawerState.shared
@@ -42,6 +49,7 @@ final class NotchController {
     private var leaveStart: Date?
     private var hotZone = NSRect.zero
     private var menuTracking = false
+    private var scaleWatcher: AnyCancellable?
 
     init() {
         let host = NSHostingView(rootView: DrawerRootView().environmentObject(state))
@@ -61,6 +69,12 @@ final class NotchController {
         nc.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
             self?.menuTracking = false
         }
+
+        // Двигают ползунок размера — сразу меняем окно (после того как значение сохранится).
+        scaleWatcher = AppSettings.shared.$scale
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.layout() }
 
         let t = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(t, forMode: .common)

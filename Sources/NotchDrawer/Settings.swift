@@ -81,8 +81,15 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(theme.rawValue, forKey: "theme") }
     }
 
+    /// Масштаб шторки: 0.85 — компактнее, 1.5 — крупнее.
+    @Published var scale: Double {
+        didSet { defaults.set(scale, forKey: "scale") }
+    }
+
     init() {
         theme = Theme(rawValue: defaults.string(forKey: "theme") ?? "") ?? .dark
+        let savedScale = defaults.double(forKey: "scale")
+        scale = savedScale == 0 ? 1 : min(max(savedScale, 0.85), 1.5)
         hiddenModules = Set(defaults.stringArray(forKey: "hiddenModules") ?? [])
         enabledLimits = Set(defaults.stringArray(forKey: "enabledLimits") ?? ["claude"])
     }
@@ -116,6 +123,20 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .controlSize(.small)
+                HStack(spacing: 6) {
+                    Text("Размер").font(.caption)
+                    Slider(value: $settings.scale, in: 0.85...1.5, step: 0.05)
+                        .controlSize(.mini)
+                    Text("\(Int((settings.scale * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .frame(width: 38, alignment: .trailing)
+                    if settings.scale != 1 {
+                        Button { settings.scale = 1 } label: { Image(systemName: "arrow.uturn.backward") }
+                            .buttonStyle(.plain)
+                            .font(.caption)
+                            .help("Вернуть 100%")
+                    }
+                }
                 Text("Разделы шторки").font(.system(size: 14, weight: .bold))
                 Text("Выключи то, что тебе не нужно").font(.caption2).foregroundStyle(.secondary)
                 ScrollView {

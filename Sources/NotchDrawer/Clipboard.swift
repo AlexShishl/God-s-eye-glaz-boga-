@@ -89,7 +89,9 @@ struct ClipboardView: View {
                            text: store.items.isEmpty ? "Скопируй что-нибудь (⌘C) — и оно появится тут" : "Ничего не нашлось")
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 5) {
+                    // Обычный VStack: записей не больше 60, а LazyVStack со строками
+                    // разной высоты на macOS уходит в бесконечный пересчёт раскладки.
+                    VStack(spacing: 5) {
                         ForEach(filtered) { item in
                             ClipRow(item: item, copied: copiedID == item.id) {
                                 store.copy(item)

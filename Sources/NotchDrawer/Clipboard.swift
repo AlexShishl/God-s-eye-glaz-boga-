@@ -67,6 +67,8 @@ final class ClipboardStore: ObservableObject {
 
 struct ClipboardView: View {
     @ObservedObject private var store = ClipboardStore.shared
+    @ObservedObject private var grabber = TextGrabber.shared
+    @ObservedObject private var hotKeys = HotKeyCenter.shared
     @State private var query = ""
     @State private var copiedID: UUID?
 
@@ -77,8 +79,14 @@ struct ClipboardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TabHeader("Буфер обмена", subtitle: "Нажми на запись — она снова скопируется") {
-                SearchField(placeholder: "Поиск", text: $query).frame(width: 200)
+            TabHeader("Буфер обмена", subtitle: grabber.status ?? "Нажми на запись — она снова скопируется") {
+                SearchField(placeholder: "Поиск", text: $query).frame(width: 160)
+                Button { TextGrabber.shared.start() } label: {
+                    Label("С экрана", systemImage: "text.viewfinder")
+                }
+                .buttonStyle(PillButton())
+                .help("Выдели область экрана — текст из неё скопируется"
+                      + (hotKeys.textGrab.map { " (\($0.display))" } ?? ""))
                 if !store.items.isEmpty {
                     Button("Очистить") { store.clear() }.buttonStyle(PillButton())
                 }

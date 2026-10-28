@@ -27,6 +27,9 @@ enum Permissions {
             // Связка ключей: лимиты Claude спросят доступ к «Claude Code-credentials»
             UsageProviders.claude.refresh()
 
+            // Запись экрана: для «Текста с экрана» во вкладке «Буфер»
+            if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+
             // Универсальный доступ: системное окно со ссылкой в Настройки
             NowPlaying.shared.requestAccessibility()
         }

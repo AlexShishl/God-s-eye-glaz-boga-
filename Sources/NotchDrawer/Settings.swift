@@ -177,6 +177,11 @@ struct SettingsView: View {
                     GoogleHint()
                 }
                 Divider()
+                HStack {
+                    Label("Текст с экрана", systemImage: "text.viewfinder").font(.caption)
+                    Spacer()
+                    HotKeyRecorder()
+                }
                 Toggle(isOn: $launchAtLogin) { Text("Запускать при входе").font(.caption) }
                     .toggleStyle(.switch)
                     .controlSize(.mini)

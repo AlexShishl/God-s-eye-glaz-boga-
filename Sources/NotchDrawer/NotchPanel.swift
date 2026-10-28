@@ -59,6 +59,9 @@ final class NotchController {
         layout()
 
         let nc = NotificationCenter.default
+        nc.addObserver(forName: .closeDrawer, object: nil, queue: .main) { [weak self] _ in
+            self?.close()
+        }
         nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.layout()
         }

@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         ClipboardStore.shared.start()
         ScreenshotStore.shared.start()
+        HotKeyCenter.shared.register()
         controller = NotchController()
         setupStatusItem()
         if CommandLine.arguments.contains("--permissions") { Permissions.requestAll() }

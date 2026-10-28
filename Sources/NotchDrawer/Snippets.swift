@@ -10,14 +10,15 @@ struct Snippet: Codable, Identifiable, Hashable {
         Snippet(title: "Почта", value: "", icon: "envelope.fill"),
         Snippet(title: "Рабочая почта", value: "", icon: "briefcase.fill"),
         Snippet(title: "Телефон", value: "", icon: "phone.fill"),
-        Snippet(title: "GitHub", value: "https://github.com/AlexShishl", icon: "chevron.left.forwardslash.chevron.right"),
+        Snippet(title: "GitHub", value: "", icon: "chevron.left.forwardslash.chevron.right"),
+        Snippet(title: "Глаз Бога", value: "https://github.com/AlexShishl/God-s-eye-glaz-boga-", icon: "eye.fill"),
         Snippet(title: "Telegram", value: "", icon: "paperplane.fill"),
     ]
 
     static let icons = [
         "envelope.fill", "briefcase.fill", "phone.fill", "paperplane.fill",
         "chevron.left.forwardslash.chevron.right", "link", "person.fill", "house.fill",
-        "creditcard.fill", "number", "star.fill", "heart.fill", "text.quote", "key.fill",
+        "creditcard.fill", "number", "star.fill", "heart.fill", "text.quote", "key.fill", "eye.fill",
     ]
 }
 

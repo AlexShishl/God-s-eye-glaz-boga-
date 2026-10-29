@@ -53,6 +53,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
     }
 
+    /// Повторный запуск уже работающего приложения (из «Программ», Spotlight, Launchpad)
+    /// раньше ничего не делал — теперь пересобирает окно и открывает шторку.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        controller?.rebuildPanel()
+        controller?.open(pinned: true)
+        return false
+    }
+
     @objc private func openDrawer() {
         controller?.open(pinned: true)
     }

@@ -42,7 +42,7 @@ final class NotchController {
         return CGSize(width: (baseSize.width * s).rounded(), height: (baseSize.height * s).rounded())
     }
 
-    private let panel = NotchPanel(size: NotchController.panelSize)
+    private var panel = NotchPanel(size: NotchController.panelSize)
     private let state = DrawerState.shared
     private var timer: Timer?
     private var hoverStart: Date?
@@ -53,11 +53,19 @@ final class NotchController {
     private var shareWatcher: AnyCancellable?
 
     init() {
-        let host = NSHostingView(rootView: DrawerRootView().environmentObject(state))
-        host.frame = NSRect(origin: .zero, size: Self.panelSize)
-        panel.contentView = host
-        panel.onEscape = { [weak self] in self?.close() }
+        setupPanel()
         layout()
+
+        // Dock перезапустился (например, его перезапустил установщик) — вместе с ним
+        // пересоздаются рабочие столы, и старое окно шторки может перестать показываться.
+        // Собираем окно заново.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard app?.bundleIdentifier == "com.apple.dock" else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self?.rebuildPanel() }
+        }
 
         let nc = NotificationCenter.default
         nc.addObserver(forName: .closeDrawer, object: nil, queue: .main) { [weak self] _ in
@@ -95,6 +103,24 @@ final class NotchController {
         let t = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(t, forMode: .common)
         timer = t
+    }
+
+    private func setupPanel() {
+        let host = NSHostingView(rootView: DrawerRootView().environmentObject(state))
+        host.frame = NSRect(origin: .zero, size: Self.panelSize)
+        panel.contentView = host
+        panel.onEscape = { [weak self] in self?.close() }
+    }
+
+    /// Новое окно вместо старого: спасает шторку, если система её «потеряла».
+    func rebuildPanel() {
+        let wasOpen = state.isOpen
+        panel.orderOut(nil)
+        panel.contentView = nil
+        panel = NotchPanel(size: Self.panelSize)
+        setupPanel()
+        layout()
+        if wasOpen { panel.orderFrontRegardless() }
     }
 
     private func targetScreen() -> NSScreen? {

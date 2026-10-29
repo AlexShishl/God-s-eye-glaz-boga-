@@ -81,6 +81,11 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(theme.rawValue, forKey: "theme") }
     }
 
+    /// Прятать шторку от демонстрации экрана (Zoom, Meet, запись экрана). По умолчанию спрятана.
+    @Published var hideFromScreenShare: Bool {
+        didSet { defaults.set(hideFromScreenShare, forKey: "hideFromScreenShare") }
+    }
+
     /// Масштаб шторки: 0.85 — компактнее, 1.5 — крупнее.
     @Published var scale: Double {
         didSet { defaults.set(scale, forKey: "scale") }
@@ -88,6 +93,7 @@ final class AppSettings: ObservableObject {
 
     init() {
         theme = Theme(rawValue: defaults.string(forKey: "theme") ?? "") ?? .dark
+        hideFromScreenShare = defaults.object(forKey: "hideFromScreenShare") as? Bool ?? true
         let savedScale = defaults.double(forKey: "scale")
         scale = savedScale == 0 ? 1 : min(max(savedScale, 0.85), 1.5)
         hiddenModules = Set(defaults.stringArray(forKey: "hiddenModules") ?? [])
@@ -182,6 +188,12 @@ struct SettingsView: View {
                     Spacer()
                     HotKeyRecorder()
                 }
+                Toggle(isOn: $settings.hideFromScreenShare) {
+                    Text("Прятать при демонстрации экрана").font(.caption)
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .help("Собеседники в Zoom не увидят шторку, даже если ты показываешь весь экран")
                 Toggle(isOn: $launchAtLogin) { Text("Запускать при входе").font(.caption) }
                     .toggleStyle(.switch)
                     .controlSize(.mini)

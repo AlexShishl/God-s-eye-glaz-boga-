@@ -50,6 +50,7 @@ final class NotchController {
     private var hotZone = NSRect.zero
     private var menuTracking = false
     private var scaleWatcher: AnyCancellable?
+    private var shareWatcher: AnyCancellable?
 
     init() {
         let host = NSHostingView(rootView: DrawerRootView().environmentObject(state))
@@ -78,6 +79,18 @@ final class NotchController {
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.layout() }
+
+        // Демонстрация экрана: .none — окна нет в чужих записях и трансляциях экрана.
+        shareWatcher = AppSettings.shared.$hideFromScreenShare
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] hide in self?.panel.sharingType = hide ? .none : .readOnly }
+
+        // Созвон: пришёл ответ — выдвигаем шторку на вкладке «Созвон».
+        nc.addObserver(forName: .showCallAnswer, object: nil, queue: .main) { [weak self] _ in
+            UserDefaults.standard.set(DrawerTab.call.rawValue, forKey: "lastTab")
+            if self?.state.isOpen == false { self?.open(pinned: true) }
+        }
 
         let t = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(t, forMode: .common)

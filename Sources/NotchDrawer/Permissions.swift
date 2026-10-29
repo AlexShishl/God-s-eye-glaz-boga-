@@ -30,6 +30,10 @@ enum Permissions {
             // Запись экрана: для «Текста с экрана» во вкладке «Буфер»
             if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
 
+            // Микрофон и распознавание речи: для вкладки «Созвон»
+            _ = await CallPermissions.microphone()
+            _ = await CallPermissions.speech()
+
             // Универсальный доступ: системное окно со ссылкой в Настройки
             NowPlaying.shared.requestAccessibility()
         }

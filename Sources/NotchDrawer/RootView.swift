@@ -1,10 +1,10 @@
 import SwiftUI
 
 enum DrawerTab: String, CaseIterable, Identifiable {
-    case player, shots, clipboard, snippets, calendar, translate, settings
+    case player, shots, clipboard, snippets, calendar, translate, call, settings
 
     /// Разделы, которые можно включать и выключать в настройках.
-    static let modules: [DrawerTab] = [.player, .shots, .clipboard, .snippets, .calendar, .translate]
+    static let modules: [DrawerTab] = [.player, .shots, .clipboard, .snippets, .calendar, .translate, .call]
 
     var id: String { rawValue }
 
@@ -16,6 +16,7 @@ enum DrawerTab: String, CaseIterable, Identifiable {
         case .snippets: "Заготовки"
         case .calendar: "Календарь"
         case .translate: "Переводчик"
+        case .call: "Созвон"
         case .settings: "Настройки"
         }
     }
@@ -28,6 +29,7 @@ enum DrawerTab: String, CaseIterable, Identifiable {
         case .snippets: "square.grid.2x2.fill"
         case .calendar: "calendar"
         case .translate: "character.bubble.fill"
+        case .call: "waveform"
         case .settings: "gearshape.fill"
         }
     }
@@ -148,6 +150,7 @@ struct DrawerRootView: View {
         case .snippets: SnippetsView()
         case .calendar: CalendarView()
         case .translate: TranslatorView()
+        case .call: CallView()
         case .settings: SettingsView()
         }
     }

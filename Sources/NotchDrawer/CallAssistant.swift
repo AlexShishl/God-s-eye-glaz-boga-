@@ -490,12 +490,32 @@ enum AIRunner {
         }
         var found = candidates.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
         if found == nil { found = askShell(name) }
+        if found == nil, name == "claude" { found = desktopClaude() }
         if let found {
             lock.lock()
             located[name] = found
             lock.unlock()
         }
         return found
+    }
+
+    /// Claude Code, встроенный в приложение Claude для Mac:
+    /// ~/Library/Application Support/Claude/claude-code/<версия>/<хеш>/claude.app/Contents/MacOS/claude.
+    /// Версия и хеш меняются с обновлениями, поэтому берём самый свежий.
+    private static func desktopClaude() -> URL? {
+        let fm = FileManager.default
+        let root = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Claude/claude-code", isDirectory: true)
+        var best: (URL, Date)?
+        for version in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [] {
+            for build in (try? fm.contentsOfDirectory(at: version, includingPropertiesForKeys: nil)) ?? [] {
+                let bin = build.appendingPathComponent("claude.app/Contents/MacOS/claude")
+                guard fm.isExecutableFile(atPath: bin.path) else { continue }
+                let date = (try? bin.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                if best == nil || date > best!.1 { best = (bin, date) }
+            }
+        }
+        return best?.0
     }
 
     /// Последний шанс: спросить у zsh пользователя, где программа.

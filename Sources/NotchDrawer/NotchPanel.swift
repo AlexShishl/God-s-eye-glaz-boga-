@@ -110,6 +110,7 @@ final class NotchController {
         host.frame = NSRect(origin: .zero, size: Self.panelSize)
         panel.contentView = host
         panel.onEscape = { [weak self] in self?.close() }
+        panel.sharingType = AppSettings.shared.hideFromScreenShare ? .none : .readOnly
     }
 
     /// Новое окно вместо старого: спасает шторку, если система её «потеряла».

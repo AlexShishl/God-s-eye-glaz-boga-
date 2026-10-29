@@ -11,9 +11,9 @@ struct CallLine: Identifiable {
 
     let id = UUID()
     let speaker: Speaker
-    let text: String
-    let date: Date
-    let isQuestion: Bool
+    var text: String
+    var date: Date
+    var isQuestion: Bool
 }
 
 struct CallAnswer: Identifiable {
@@ -80,8 +80,8 @@ final class CallAssistant: ObservableObject {
 
     private var system: SystemAudioCapture?
     private var mic: MicCapture?
-    private var themText: LiveTranscriber?
-    private var meText: LiveTranscriber?
+    private var themText: SpeechTranscribing?
+    private var meText: SpeechTranscribing?
     private var startedAt: Date?
     private var summary: String?
 
@@ -129,8 +129,8 @@ final class CallAssistant: ObservableObject {
         guard await CallPermissions.speech() else {
             throw CallError("Разреши «Распознавание речи» для Глаза Бога: Системные настройки → Конфиденциальность")
         }
-        let them = LiveTranscriber(locale: language)
-        guard them.isAvailable else {
+        let them = Transcribers.make(locale: language)
+        if let live = them as? LiveTranscriber, !live.isAvailable {
             throw CallError("Распознавание речи сейчас недоступно. Проверь интернет или язык в настройках созвона")
         }
         them.onPartial = { [weak self] t in self?.partialThem = t }
@@ -158,7 +158,7 @@ final class CallAssistant: ObservableObject {
 
         if useMic {
             if await CallPermissions.microphone() {
-                let me = LiveTranscriber(locale: language)
+                let me = Transcribers.make(locale: language)
                 me.onPartial = { [weak self] t in self?.partialMe = t }
                 me.onFinal = { [weak self] t in self?.add(t, from: .me) }
                 let m = MicCapture()
@@ -199,6 +199,18 @@ final class CallAssistant: ObservableObject {
     private func add(_ text: String, from speaker: CallLine.Speaker) {
         let clean = text.trimmed
         guard !clean.isEmpty else { return }
+        // Обрывок продолжает предыдущую фразу того же человека — склеиваем, а не плодим строчки.
+        if let last = lines.last, last.speaker == speaker, !answeredLines.contains(last.id),
+           Date().timeIntervalSince(last.date) < 4,
+           !(last.text.last.map { ".!?…".contains($0) } ?? false) {
+            var merged = last
+            merged.text = last.text + " " + clean
+            merged.date = Date()
+            merged.isQuestion = speaker == .them && QuestionDetector.isQuestion(merged.text)
+            lines[lines.count - 1] = merged
+            if merged.isQuestion && autoAnswer { ask(merged) }
+            return
+        }
         let line = CallLine(speaker: speaker, text: clean, date: Date(),
                             isQuestion: speaker == .them && QuestionDetector.isQuestion(clean))
         lines.append(line)

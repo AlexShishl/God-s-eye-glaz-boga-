@@ -89,10 +89,31 @@ final class MicCapture {
     }
 }
 
+/// Распознавание речи одного источника (собеседники или я).
+protocol SpeechTranscribing: AnyObject {
+    var onPartial: ((String) -> Void)? { get set }
+    var onFinal: ((String) -> Void)? { get set }
+    var onError: ((String) -> Void)? { get set }
+    func start()
+    func stop()
+    func append(_ buffer: AVAudioPCMBuffer)
+}
+
+enum Transcribers {
+    /// На macOS 26 — новое распознавание Apple (SpeechAnalyzer): лучше слышит длинную речь
+    /// и само делит её на фразы. На старых системах — SFSpeechRecognizer.
+    static func make(locale: String) -> SpeechTranscribing {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) { return AnalyzerTranscriber(locale: locale) }
+        #endif
+        return LiveTranscriber(locale: locale)
+    }
+}
+
 /// Распознаёт речь одного источника (собеседники или я) и режет её на реплики:
-/// пауза ~1.3 секунды — реплика закончилась. Каждые ~50 секунд распознавание
+/// пауза ~1.8 секунды — реплика закончилась. Каждые ~50 секунд распознавание
 /// перезапускается, потому что у Apple есть ограничение на длину одного запроса.
-final class LiveTranscriber {
+final class LiveTranscriber: SpeechTranscribing {
     // Все три вызываются на главном потоке.
     /// Текст, который ещё распознаётся (меняется на ходу). Пустая строка — реплика закончилась.
     var onPartial: ((String) -> Void)?
@@ -168,7 +189,6 @@ final class LiveTranscriber {
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
         req.addsPunctuation = true
-        if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
         request = req
         let gen = generation
         task = recognizer.recognitionTask(with: req) { [weak self] result, error in
@@ -221,7 +241,7 @@ final class LiveTranscriber {
     private func tick() {
         guard running else { return }
         let now = Date()
-        if !lastText.trimmed.isEmpty, now.timeIntervalSince(lastChange) > 1.3 {
+        if !lastText.trimmed.isEmpty, now.timeIntervalSince(lastChange) > 1.8 {
             commit()
         } else if now.timeIntervalSince(startedAt) > 50 {
             commit()
@@ -235,6 +255,165 @@ final class LiveTranscriber {
         if !text.trimmed.isEmpty { emitFinal(text) }
     }
 }
+
+#if compiler(>=6.2)
+/// SpeechAnalyzer + SpeechTranscriber (macOS 26). Если не завёлся (нет языка, не скачалась модель),
+/// тихо переключаемся на LiveTranscriber.
+@available(macOS 26.0, *)
+final class AnalyzerTranscriber: SpeechTranscribing {
+    var onPartial: ((String) -> Void)?
+    var onFinal: ((String) -> Void)?
+    var onError: ((String) -> Void)?
+
+    private let localeID: String
+    private let lock = NSLock()
+    private var builder: AsyncStream<AnalyzerInput>.Continuation?
+    private var analyzer: SpeechAnalyzer?
+    private var format: AVAudioFormat?
+    private var converter: AVAudioConverter?
+    private var resultsTask: Task<Void, Never>?
+    private var fallback: LiveTranscriber?
+    private var stopped = false
+
+    init(locale: String) {
+        localeID = locale
+    }
+
+    func start() {
+        Task { [self] in
+            do {
+                try await setUp()
+            } catch {
+                NSLog("SpeechAnalyzer: \(error)")
+                let live = LiveTranscriber(locale: localeID)
+                live.onPartial = onPartial
+                live.onFinal = onFinal
+                live.onError = onError
+                if useFallback(live) { live.start() }
+            }
+        }
+    }
+
+    private func setUp() async throws {
+        let supported: Locale? = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeID))
+        guard let locale = supported else {
+            throw CallError("Язык не поддерживается новым распознаванием")
+        }
+        let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [],
+                                            reportingOptions: [.volatileResults], attributeOptions: [])
+        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            DispatchQueue.main.async { self.onError?("Скачиваю модель распознавания речи, это один раз…") }
+            try await request.downloadAndInstall()
+            DispatchQueue.main.async { self.onError?("Модель скачана, слушаю") }
+        }
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        let best: AVAudioFormat? = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
+        guard let format = best else {
+            throw CallError("Нет подходящего формата звука")
+        }
+        let (stream, builder) = AsyncStream<AnalyzerInput>.makeStream()
+
+        resultsTask = Task { [weak self] in
+            do {
+                for try await result in transcriber.results {
+                    let text = String(result.text.characters).trimmed
+                    let isFinal = result.isFinal
+                    guard let self else { return }
+                    DispatchQueue.main.async {
+                        if isFinal {
+                            self.onPartial?("")
+                            if !text.isEmpty { self.onFinal?(text) }
+                        } else {
+                            self.onPartial?(text)
+                        }
+                    }
+                }
+            } catch {
+                let message = error.localizedDescription
+                guard let self else { return }
+                DispatchQueue.main.async { self.onError?("Распознавание: \(message)") }
+            }
+        }
+        try await analyzer.start(inputSequence: stream)
+
+        if !install(analyzer, format, builder) {
+            builder.finish()
+            try? await analyzer.finalizeAndFinishThroughEndOfInput()
+        }
+    }
+
+    /// false — пока заводились, запись уже остановили.
+    private func install(_ analyzer: SpeechAnalyzer, _ format: AVAudioFormat,
+                         _ builder: AsyncStream<AnalyzerInput>.Continuation) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !stopped else { return false }
+        self.analyzer = analyzer
+        self.format = format
+        self.builder = builder
+        return true
+    }
+
+    private func useFallback(_ live: LiveTranscriber) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !stopped else { return false }
+        fallback = live
+        return true
+    }
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let fallback {
+            fallback.append(buffer)
+            return
+        }
+        guard let builder, let format, let converted = convert(buffer, to: format) else { return }
+        builder.yield(AnalyzerInput(buffer: converted))
+    }
+
+    func stop() {
+        lock.lock()
+        stopped = true
+        let builder = self.builder
+        let analyzer = self.analyzer
+        let fallback = self.fallback
+        self.builder = nil
+        self.analyzer = nil
+        lock.unlock()
+        fallback?.stop()
+        builder?.finish()
+        if let analyzer {
+            Task { try? await analyzer.finalizeAndFinishThroughEndOfInput() }
+        }
+    }
+
+    /// SpeechAnalyzer хочет свой формат (обычно 16 кГц моно), а звук приходит в каком угодно.
+    private func convert(_ buffer: AVAudioPCMBuffer, to format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        if buffer.format == format { return buffer }
+        if converter == nil || converter?.inputFormat != buffer.format {
+            converter = AVAudioConverter(from: buffer.format, to: format)
+        }
+        guard let converter else { return nil }
+        let ratio = format.sampleRate / buffer.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 64
+        guard let out = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return nil }
+        var consumed = false
+        var error: NSError?
+        let status = converter.convert(to: out, error: &error) { _, inputStatus in
+            if consumed {
+                inputStatus.pointee = .noDataNow
+                return nil
+            }
+            consumed = true
+            inputStatus.pointee = .haveData
+            return buffer
+        }
+        return status == .error || out.frameLength == 0 ? nil : out
+    }
+}
+#endif
 
 enum CallPermissions {
     /// Распознавание речи. true — можно.

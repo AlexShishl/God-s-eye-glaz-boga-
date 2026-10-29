@@ -44,7 +44,7 @@ sign_app() {
     local hash
     hash="$(find_identity)"
     if [ -z "$hash" ]; then
-        echo "Создаю локальный сертификат «$IDENTITY» для подписи (один раз)…"
+        echo "Создаю локальный сертификат «${IDENTITY}» для подписи (один раз)…"
         create_identity && hash="$(find_identity)"
     fi
     if [ -n "$hash" ] && codesign --force --deep --sign "$hash" "$1"; then

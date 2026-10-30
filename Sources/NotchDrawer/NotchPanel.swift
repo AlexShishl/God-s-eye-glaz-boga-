@@ -23,6 +23,7 @@ final class NotchPanel: NSPanel {
         hasShadow = false
         isMovable = false
         hidesOnDeactivate = false
+        isReleasedWhenClosed = false
         becomesKeyOnlyIfNeeded = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
     }
@@ -66,6 +67,18 @@ final class NotchController {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self?.rebuildPanel() }
         }
 
+        // После сна, блокировки экрана или смены пользователя macOS тоже может «потерять»
+        // окно шторки: процесс жив, а наведение на вырез ничего не показывает.
+        // Поэтому после пробуждения окно тоже собирается заново.
+        let ws = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didWakeNotification,
+                     NSWorkspace.screensDidWakeNotification,
+                     NSWorkspace.sessionDidBecomeActiveNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self?.rebuildPanel() }
+            }
+        }
+
         let nc = NotificationCenter.default
         nc.addObserver(forName: .closeDrawer, object: nil, queue: .main) { [weak self] _ in
             self?.close()
@@ -104,6 +117,7 @@ final class NotchController {
         let wasOpen = state.isOpen
         panel.orderOut(nil)
         panel.contentView = nil
+        panel.close()
         panel = NotchPanel(size: Self.panelSize)
         setupPanel()
         layout()
@@ -165,6 +179,18 @@ final class NotchController {
         if pinned { state.pinned = true }
         panel.orderFrontRegardless()
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { state.isOpen = true }
+        ensureVisible()
+    }
+
+    /// Страховка: если окно так и не появилось на экране, значит система его потеряла.
+    /// Собираем новое и показываем его, не дожидаясь, пока человек перезапустит приложение.
+    private func ensureVisible() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self, self.state.isOpen else { return }
+            guard !self.panel.isVisible || !self.panel.occlusionState.contains(.visible) else { return }
+            self.rebuildPanel()
+            self.panel.orderFrontRegardless()
+        }
     }
 
     func close() {
